@@ -1,0 +1,647 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#E1AD01">
+<title>PetMatic · Acceso remoto</title>
+<link rel="icon" type="image/png" href="logo.png">
+<style>
+:root{
+  --mostaza:#E1AD01; --mostaza-osc:#B88700;
+  --cafe:#2B1A0E; --crema:#FFF9E8; --card:#FFFCF2; --suave:#6B5A3E;
+  --linea:rgba(43,26,14,.14);
+  --verde:#2E7D32; --rojo:#C62828; --naranja:#D86A00;
+  --r:18px;
+}
+*{box-sizing:border-box;margin:0}
+html{-webkit-text-size-adjust:100%}
+body{
+  font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;
+  background:var(--mostaza);
+  background-image:radial-gradient(1100px 480px at 50% -8%,rgba(255,255,255,.30),transparent 70%);
+  background-attachment:fixed;
+  color:var(--cafe); line-height:1.4; min-height:100vh;
+  padding:max(16px,env(safe-area-inset-top)) max(14px,env(safe-area-inset-right))
+          max(28px,env(safe-area-inset-bottom)) max(14px,env(safe-area-inset-left));
+}
+.wrap{max-width:1080px;margin:0 auto}
+.ic{width:1.15em;height:1.15em;fill:none;stroke:currentColor;stroke-width:2;
+    stroke-linecap:round;stroke-linejoin:round;vertical-align:-.2em;flex:none}
+
+/* ---------- Encabezado ---------- */
+.top{display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap;margin-bottom:18px}
+.logo{height:96px;width:auto;display:block}
+.reloj{background:var(--cafe);color:var(--crema);border-radius:var(--r);padding:12px 22px;
+       text-align:center;min-width:230px;box-shadow:0 8px 22px rgba(43,26,14,.30)}
+.hora{font-size:2.4rem;font-weight:700;letter-spacing:.03em;line-height:1.1;font-variant-numeric:tabular-nums}
+.hora small{font-size:1.1rem;font-weight:600;opacity:.6}
+.fecha{font-size:.88rem;opacity:.85;margin-top:2px;min-height:1.2em}
+.sync{display:inline-flex;align-items:center;gap:6px;font-size:.74rem;margin-top:8px;opacity:.92}
+.sync i{width:8px;height:8px;border-radius:50%;background:#9A9486;display:inline-block}
+.sync.ok i{background:#5BD16B}
+.sync.mal i{background:#FF7A5C}
+
+/* ---------- Avisos ---------- */
+.aviso{display:none;align-items:center;gap:10px;background:#FFF1D0;border:1px solid #E6A100;
+       border-left:6px solid var(--naranja);border-radius:12px;padding:12px 14px;font-weight:600;
+       margin-bottom:10px;box-shadow:0 3px 10px rgba(43,26,14,.18)}
+.aviso.visible{display:flex}
+.aviso.rojo{background:#FDE8E6;border-color:#E08A84;border-left-color:var(--rojo)}
+.aviso .ic{font-size:1.4rem;flex:none}
+
+/* ---------- Resumen ---------- */
+.resumen{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:14px}
+.tile{background:var(--card);border-radius:var(--r);border:1px solid var(--linea);padding:14px 16px;
+      display:flex;align-items:center;gap:14px;box-shadow:0 6px 18px rgba(43,26,14,.16)}
+.tile .ico{width:46px;height:46px;border-radius:12px;background:var(--mostaza);display:grid;
+           place-items:center;flex:none;font-size:1.45rem}
+.tile b{display:block;font-size:1.6rem;line-height:1.1;font-variant-numeric:tabular-nums}
+.tile span{font-size:.8rem;color:var(--suave)}
+
+/* ---------- Tarjetas ---------- */
+.grid{display:grid;gap:14px;grid-template-columns:1fr}
+.card{background:var(--card);border-radius:var(--r);border:1px solid var(--linea);padding:18px;
+      box-shadow:0 6px 18px rgba(43,26,14,.16)}
+.card h2{display:flex;align-items:center;gap:10px;font-size:1.1rem;margin-bottom:14px}
+.card h2 .ic{color:var(--mostaza-osc);font-size:1.35rem}
+.nota{font-size:.82rem;color:var(--suave);margin-top:10px}
+
+/* ---------- Botones ---------- */
+.btn{font:inherit;font-weight:700;border:0;border-radius:12px;padding:0 18px;min-height:50px;cursor:pointer;
+     display:inline-flex;align-items:center;justify-content:center;gap:8px;width:100%;
+     background:var(--cafe);color:var(--crema);box-shadow:0 3px 0 rgba(0,0,0,.28);
+     transition:transform .08s,filter .15s,opacity .2s}
+.btn:active:not(:disabled){transform:translateY(2px);box-shadow:0 1px 0 rgba(0,0,0,.28)}
+.btn:disabled{opacity:.45;cursor:not-allowed}
+.btn.dos{flex-direction:column;gap:0;padding:9px 12px;line-height:1.25}
+.btn.dos small{font-weight:500;opacity:.8;font-size:.78rem}
+.btn.sec{background:transparent;color:var(--cafe);border:2px solid var(--cafe);box-shadow:none}
+.btn.ok{background:var(--verde)}
+.btn.mal{background:var(--rojo)}
+.btn.chico{min-height:42px;width:auto;padding:0 16px}
+.btn:focus-visible,.chip:focus-visible,.r-del:focus-visible{outline:3px solid var(--mostaza-osc);outline-offset:2px}
+@media(hover:hover){.btn:hover:not(:disabled){filter:brightness(1.18)}}
+.fila2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+
+/* ---------- Progreso ---------- */
+.prog{height:10px;border-radius:99px;background:rgba(43,26,14,.12);overflow:hidden;margin-top:16px;opacity:.35;transition:opacity .2s}
+.prog.on{opacity:1}
+.prog i{display:block;height:100%;width:0;background:var(--mostaza-osc);border-radius:99px}
+.estadoComida{min-height:1.3em;margin-top:8px;font-size:.9rem;color:var(--suave);text-align:center}
+
+/* ---------- Estado del agua / WiFi ---------- */
+.kv{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:10px 0;border-bottom:1px solid var(--linea)}
+.kv:last-child{border-bottom:0}
+.kv span{color:var(--suave)}
+.kv b{text-align:right;word-break:break-word}
+.kvs{margin-bottom:14px}
+.pill{display:inline-flex;align-items:center;gap:6px;padding:4px 12px;border-radius:99px;font-weight:700;
+      font-size:.85rem;color:var(--suave);background:rgba(43,26,14,.08)}
+.pill::before{content:"";width:8px;height:8px;border-radius:50%;background:currentColor}
+.pill.ok{color:var(--verde);background:#E3F3E4}
+.pill.mal{color:var(--rojo);background:#FBE3E1}
+.pill.med{color:var(--naranja);background:#FFEBD6}
+
+/* ---------- Rutinas ---------- */
+.rut-head{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;margin-bottom:14px}
+.rut-head h2{margin:0}
+.cuenta{font-size:.8rem;font-weight:700;background:var(--mostaza);color:var(--cafe);border-radius:99px;padding:2px 10px}
+.lista{display:grid;gap:10px}
+.vacio{display:none;text-align:center;color:var(--suave);padding:22px 8px;border:2px dashed var(--linea);border-radius:14px}
+.rutina{display:grid;gap:10px 12px;align-items:center;background:#fff;border:1px solid var(--linea);
+        border-radius:14px;padding:12px;
+        grid-template-columns:auto 1fr 1fr auto;
+        grid-template-areas:"tog nom nom del" "hora hora por por" "dias dias dias dias"}
+.rutina.off .r-nom,.rutina.off .r-hora,.rutina.off .r-por,.rutina.off .r-dias{opacity:.5}
+.r-tog{grid-area:tog}.r-nom{grid-area:nom}.r-del{grid-area:del}
+.r-hora{grid-area:hora}.r-por{grid-area:por}.r-dias{grid-area:dias}
+.in{font:inherit;width:100%;min-height:44px;padding:8px 12px;border-radius:10px;border:2px solid var(--linea);
+    background:#fff;color:var(--cafe)}
+.in:focus{outline:none;border-color:var(--mostaza-osc);box-shadow:0 0 0 3px rgba(225,173,1,.35)}
+.dias{display:flex;gap:6px}
+.chip{flex:1;min-width:34px;max-width:48px;height:40px;border-radius:10px;border:2px solid var(--linea);
+      background:transparent;font:inherit;font-weight:700;color:var(--suave);cursor:pointer}
+.chip.sel{background:var(--cafe);border-color:var(--cafe);color:var(--crema)}
+.r-del{width:44px;height:44px;border-radius:10px;border:2px solid var(--linea);background:transparent;
+       color:var(--rojo);display:grid;place-items:center;cursor:pointer;font-size:1.15rem}
+@media(hover:hover){.r-del:hover{background:#FBE3E1}.chip:hover:not(.sel){border-color:var(--cafe)}}
+.sw{position:relative;width:50px;height:30px;display:inline-block;flex:none}
+.sw input{position:absolute;inset:0;width:100%;height:100%;margin:0;opacity:0;cursor:pointer;z-index:1}
+.sw span{position:absolute;inset:0;border-radius:99px;background:#C9BFA8;transition:background .2s}
+.sw span::after{content:"";position:absolute;top:3px;left:3px;width:24px;height:24px;border-radius:50%;
+                background:#fff;box-shadow:0 1px 3px rgba(0,0,0,.35);transition:transform .2s}
+.sw input:checked+span{background:var(--verde)}
+.sw input:checked+span::after{transform:translateX(20px)}
+.sw input:focus-visible+span{outline:3px solid var(--mostaza-osc);outline-offset:2px}
+
+/* ---------- Toast ---------- */
+.toast{position:fixed;left:50%;bottom:max(20px,env(safe-area-inset-bottom));transform:translate(-50%,30px);
+       background:var(--cafe);color:var(--crema);padding:12px 20px;border-radius:12px;font-weight:600;
+       opacity:0;pointer-events:none;transition:opacity .25s,transform .25s;max-width:calc(100% - 28px);
+       text-align:center;box-shadow:0 10px 28px rgba(0,0,0,.4);z-index:50}
+.toast.show{opacity:1;transform:translate(-50%,0)}
+.toast.err{background:var(--rojo)}
+
+.login{position:fixed;inset:0;background:rgba(43,26,14,.82);display:none;place-items:center;z-index:100;padding:16px}
+.login.on{display:grid}
+.login .box{background:var(--card);border-radius:var(--r);padding:24px;max-width:380px;width:100%;box-shadow:0 20px 50px rgba(0,0,0,.5)}
+.login h2{font-size:1.2rem;margin-bottom:6px}
+.login label{display:block;font-size:.85rem;color:var(--suave);margin:12px 0 4px}
+.login .chk{display:flex;align-items:center;gap:8px;margin:14px 0}
+.login .chk input{width:18px;height:18px}
+.login .err{color:var(--rojo);font-weight:600;min-height:1.3em;margin-bottom:8px;font-size:.9rem}
+footer{text-align:center;font-size:.78rem;color:var(--cafe);opacity:.7;margin-top:22px}
+
+/* ---------- Tablet y computadora ---------- */
+@media(min-width:760px){
+  .grid{grid-template-columns:1fr 1fr}
+  .col2{grid-column:1/-1}
+  .card{padding:22px}
+}
+@media(min-width:900px){
+  .rutina{grid-template-columns:auto minmax(130px,1.3fr) 124px 190px auto auto;
+          grid-template-areas:"tog nom hora por dias del"}
+  .chip{flex:none;width:38px}
+}
+
+/* ---------- Celulares ---------- */
+@media(max-width:600px){
+  .top{flex-direction:column;text-align:center;gap:12px}
+  .logo{height:86px}
+  .reloj{width:100%}
+  .hora{font-size:2.1rem}
+  .resumen{gap:10px}
+  .tile{flex-direction:column;align-items:flex-start;gap:8px;padding:12px 14px}
+  .tile b{font-size:1.4rem}
+  .card{padding:16px}
+}
+@media(prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+</head>
+<body>
+
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <symbol id="i-bowl" viewBox="0 0 24 24"><path d="M3 12h18a9 9 0 0 1-18 0z"/><path d="M7 12c0-2.8 2.2-5 5-5s5 2.2 5 5"/></symbol>
+  <symbol id="i-drop" viewBox="0 0 24 24"><path d="M12 2.7l5.7 5.7a8 8 0 1 1-11.4 0z"/></symbol>
+  <symbol id="i-clock" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></symbol>
+  <symbol id="i-cal" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></symbol>
+  <symbol id="i-wifi" viewBox="0 0 24 24"><path d="M5 12.6a11 11 0 0 1 14.1 0M1.4 9a16 16 0 0 1 21.2 0M8.5 16.1a6 6 0 0 1 7 0"/><path d="M12 20h.01"/></symbol>
+  <symbol id="i-plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></symbol>
+  <symbol id="i-trash" viewBox="0 0 24 24"><path d="M3 6h18M8 6V4a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v2M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6M10 11v6M14 11v6"/></symbol>
+  <symbol id="i-alert" viewBox="0 0 24 24"><path d="M10.3 3.9L1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0zM12 9v4M12 17h.01"/></symbol>
+</svg>
+
+<div class="wrap">
+
+  <header class="top">
+    <img class="logo" src="logo.png" alt="PetMatic">
+    <div class="reloj">
+      <div class="hora" id="relojHora">--:--<small>:--</small></div>
+      <div class="fecha" id="relojFecha"></div>
+      <div class="sync" id="syncChip"><i></i><span id="syncTxt">Conectando…</span></div>
+    </div>
+  </header>
+
+  <section>
+    <div class="aviso rojo" id="avisoOffline"><svg class="ic"><use href="#i-alert"/></svg><span>El dispensador no está conectado a internet. Se muestran los últimos datos conocidos.</span></div>
+    <div class="aviso" id="avisoVacio"><svg class="ic"><use href="#i-alert"/></svg><span>Depósito de comida vacío. ¡Hay que recargarlo!</span></div>
+    <div class="aviso" id="avisoAgua"><svg class="ic"><use href="#i-drop"/></svg><span>Depósito de agua sin agua. ¡Hay que llenarlo!</span></div>
+    <div class="aviso rojo" id="avisoFalla"><svg class="ic"><use href="#i-alert"/></svg><span>Bombeo cortado por tiempo máximo. Revisá el tarrito y volvé a activar.</span></div>
+  </section>
+
+  <section class="resumen">
+    <div class="tile">
+      <div class="ico"><svg class="ic"><use href="#i-bowl"/></svg></div>
+      <div><b id="contador">--</b><span>Comidas dispensadas</span></div>
+    </div>
+    <div class="tile">
+      <div class="ico"><svg class="ic"><use href="#i-cal"/></svg></div>
+      <div><b id="proxHora">--:--</b><span id="proxTxt">Próxima comida</span></div>
+    </div>
+  </section>
+
+  <main class="grid">
+
+    <!-- ================= COMIDA ================= -->
+    <section class="card">
+      <h2><svg class="ic"><use href="#i-bowl"/></svg>Dar comida ahora</h2>
+      <div class="fila2">
+        <button class="btn dos" id="btn5" onclick="darComida(2500)">Porción chica<small>2,5 seg</small></button>
+        <button class="btn dos" id="btn10" onclick="darComida(5000)">Porción grande<small>5 seg</small></button>
+      </div>
+      <div class="prog" id="prog"><i id="barra"></i></div>
+      <p class="estadoComida" id="estadoComida">Listo para dispensar</p>
+    </section>
+
+    <!-- ================= AGUA ================= -->
+    <section class="card">
+      <h2><svg class="ic"><use href="#i-drop"/></svg>Agua</h2>
+      <div class="kvs">
+        <div class="kv"><span>Depósito</span><span class="pill" id="agua">...</span></div>
+        <div class="kv"><span>Tarrito</span><span class="pill" id="tarrito">...</span></div>
+        <div class="kv"><span>Bomba</span><span class="pill" id="bomba">...</span></div>
+        <div class="kv"><span>Modo automático</span><span class="pill" id="auto">...</span></div>
+      </div>
+      <div class="fila2">
+        <button class="btn ok" onclick="cmdAgua('iniciar')">Activar agua</button>
+        <button class="btn mal" onclick="cmdAgua('detener')">Desactivar agua</button>
+      </div>
+    </section>
+
+    <!-- ================= RUTINAS ================= -->
+    <section class="card col2">
+      <div class="rut-head">
+        <h2><svg class="ic"><use href="#i-clock"/></svg>Rutinas de comida <span class="cuenta" id="cuentaRut">0/8</span></h2>
+        <button class="btn chico" id="btnAdd" onclick="agregarRutina()"><svg class="ic"><use href="#i-plus"/></svg>Agregar rutina</button>
+      </div>
+      <div class="lista" id="lista"></div>
+      <p class="vacio" id="vacio">Todavía no hay rutinas.<br>Tocá «Agregar rutina» para programar la primera comida del día.</p>
+      <p class="nota" id="rutEstado">Los cambios se guardan automáticamente.</p>
+    </section>
+
+    <!-- ================= WIFI ================= -->
+    <section class="card col2">
+      <h2><svg class="ic"><use href="#i-wifi"/></svg>Conexión</h2>
+      <div class="kvs">
+        <div class="kv"><span>Dispensador</span><span class="pill" id="pDisp">...</span></div>
+        <div class="kv"><span>WiFi de la casa</span><b id="wifiRed">...</b></div>
+        <div class="kv"><span>Señal</span><b id="wifiSenal">...</b></div>
+      </div>
+      <button class="btn sec" onclick="cerrarSesion()">Cerrar sesión</button>
+    </section>
+
+  </main>
+
+  <footer>PetMatic · Dispensador inteligente de comida y agua · Acceso remoto</footer>
+</div>
+
+<div class="login" id="login">
+  <form class="box" id="loginForm" autocomplete="on">
+    <h2>PetMatic · Acceso remoto</h2>
+    <p class="nota" style="margin:0">Ingresá el usuario y la clave de la nube (broker MQTT) creados para la web.</p>
+    <label for="lUser">Usuario</label>
+    <input class="in" id="lUser" name="username" autocomplete="username" required>
+    <label for="lPass">Clave</label>
+    <input class="in" id="lPass" name="password" type="password" autocomplete="current-password" required>
+    <label class="chk"><input type="checkbox" id="lRec" checked> Recordar en este dispositivo</label>
+    <div class="err" id="lErr"></div>
+    <button class="btn ok" type="submit">Entrar</button>
+  </form>
+</div>
+
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+<script src="https://cdn.jsdelivr.net/npm/mqtt@5.10.1/dist/mqtt.min.js"></script>
+<script>
+/* ============ CONFIGURACIÓN (editá solo esta línea) ============ */
+const BROKER_HOST = 'c21b1192.ala.us-east-1.emqxsl.com
+';   // el "Connection Address" de tu broker (sin https://)
+const BROKER_WSS_PORT = 8084;                // puerto "WebSocket over TLS" (verificalo en tu panel de EMQX)
+/* ================================================================= */
+const BROKER_URL = 'wss://' + BROKER_HOST + ':' + BROKER_WSS_PORT + '/mqtt';
+const T = {
+  estado: 'petmatic/estado', rutinas: 'petmatic/rutinas', disp: 'petmatic/disponible',
+  cComida: 'petmatic/cmd/comida', cAgua: 'petmatic/cmd/agua', cRutinas: 'petmatic/cmd/rutinas'
+};
+
+const $ = id => document.getElementById(id);
+const p2 = x => String(x).padStart(2, '0');
+const DIAS_ORDEN = [1, 2, 3, 4, 5, 6, 0];
+const DIAS_LETRA = {1:'L', 2:'M', 3:'M', 4:'J', 5:'V', 6:'S', 0:'D'};
+const DIAS_NOMBRE = {1:'Lunes', 2:'Martes', 3:'Miércoles', 4:'Jueves', 5:'Viernes', 6:'Sábado', 0:'Domingo'};
+const PORCIONES = [[25, 'Chica · 2,5 s'], [50, 'Grande · 5 s'], [100, 'Extra grande · 10 s']];
+
+let rutinas = [], rutMax = 8, verLocal = -1;
+let guardarTimer = null, guardando = false, confirmTimer = null;
+let toastTimer = null, estabaDispensando = false, ultimoMin = -1;
+let client = null, nube = false, online = false, feeding = false, pendienteComida = false, pendTimer = null;
+let casa = null;   // hora de la casa: { base (seg del día), dow, recibido (ms) }
+
+/* ---------- Utilidades ---------- */
+function el(tag, cls, attrs) {
+  const e = document.createElement(tag);
+  if (cls) e.className = cls;
+  if (attrs) for (const k in attrs) e.setAttribute(k, attrs[k]);
+  return e;
+}
+function toast(txt, err) {
+  const t = $('toast');
+  t.textContent = txt;
+  t.className = 'toast show' + (err ? ' err' : '');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => { t.className = 'toast'; }, 2800);
+}
+function setPill(id, txt, cls) { const e = $(id); e.textContent = txt; e.className = 'pill ' + (cls || ''); }
+function mostrar(id, v) { $(id).classList.toggle('visible', !!v); }
+function guardarLocal(k, v) { try { if (v === null) localStorage.removeItem(k); else localStorage.setItem(k, v); } catch (e) {} }
+function leerLocal(k) { try { return localStorage.getItem(k); } catch (e) { return null; } }
+
+/* ---------- Sesión ---------- */
+$('loginForm').addEventListener('submit', ev => {
+  ev.preventDefault();
+  const u = $('lUser').value.trim(), p = $('lPass').value;
+  if (!u || !p) return;
+  $('lErr').textContent = '';
+  if ($('lRec').checked) guardarLocal('petmatic.cred', JSON.stringify({ u: u, p: p }));
+  conectar(u, p);
+});
+
+function cerrarSesion(conError) {
+  if (client) { try { client.end(true); } catch (e) {} client = null; }
+  guardarLocal('petmatic.cred', null);
+  nube = false; online = false;
+  refrescarChip();
+  $('login').classList.add('on');
+  $('lErr').textContent = conError || '';
+}
+
+/* ---------- MQTT ---------- */
+function esErrorAuth(err) {
+  const c = err && err.code;
+  return c === 4 || c === 5 || /not authorized|bad user/i.test((err && err.message) || '');
+}
+
+function conectar(u, p) {
+  if (typeof mqtt === 'undefined') { $('lErr').textContent = 'No se pudo cargar la librería MQTT. Revisá tu conexión.'; $('login').classList.add('on'); return; }
+  if (client) { try { client.end(true); } catch (e) {} }
+  $('login').classList.remove('on');
+  setPill('pDisp', 'Conectando…', 'med');
+  $('syncChip').className = 'sync'; $('syncTxt').textContent = 'Conectando a la nube…';
+
+  client = mqtt.connect(BROKER_URL, {
+    username: u, password: p,
+    clientId: 'web-' + Math.random().toString(16).slice(2, 10),
+    clean: true, reconnectPeriod: 3000, connectTimeout: 10000, keepalive: 30
+  });
+  client.on('connect', () => {
+    nube = true;
+    client.subscribe([T.estado, T.rutinas, T.disp], { qos: 1 });
+    refrescarChip();
+  });
+  client.on('close', () => { nube = false; online = false; refrescarChip(); });
+  client.on('error', err => {
+    if (esErrorAuth(err)) cerrarSesion('Usuario o clave incorrectos.');
+  });
+  client.on('message', (topic, payload) => {
+    const txt = new TextDecoder().decode(payload);
+    try {
+      if (topic === T.disp) { online = (txt === 'online'); refrescarChip(); }
+      else if (topic === T.estado) aplicarEstado(JSON.parse(txt));
+      else if (topic === T.rutinas) aplicarRutinas(JSON.parse(txt));
+    } catch (e) { /* mensaje inválido: se ignora */ }
+  });
+}
+
+function enviar(topic, msg) {
+  if (!client || !nube) { toast('Sin conexión con la nube', true); return false; }
+  if (!online) { toast('El dispensador está desconectado', true); return false; }
+  client.publish(topic, msg, { qos: 1, retain: false });   // nunca retenido: no debe repetirse
+  return true;
+}
+
+/* ---------- Estado de conexión ---------- */
+function refrescarChip() {
+  const chip = $('syncChip');
+  if (!nube) { chip.className = 'sync mal'; $('syncTxt').textContent = 'Sin conexión con la nube'; setPill('pDisp', 'Sin nube', 'mal'); }
+  else if (!online) { chip.className = 'sync mal'; $('syncTxt').textContent = 'Dispensador desconectado'; setPill('pDisp', 'Desconectado', 'mal'); }
+  else { chip.className = 'sync ok'; $('syncTxt').textContent = 'Dispensador en línea'; setPill('pDisp', 'En línea', 'ok'); }
+  mostrar('avisoOffline', nube && !online);
+  actualizarBotones();
+}
+function actualizarBotones() {
+  const off = !online || feeding || pendienteComida;
+  $('btn5').disabled = off; $('btn10').disabled = off;
+}
+
+/* ---------- Reloj (hora de la casa si se conoce) ---------- */
+function horaCasa() {
+  if (!casa) return null;
+  const total = casa.base + Math.floor((Date.now() - casa.recibido) / 1000);
+  return { s: total % 86400, dow: (casa.dow + Math.floor(total / 86400)) % 7 };
+}
+function tickReloj() {
+  const hc = horaCasa();
+  let h, m, s, fecha;
+  if (hc) {
+    h = Math.floor(hc.s / 3600); m = Math.floor((hc.s % 3600) / 60); s = hc.s % 60;
+    fecha = 'Hora en casa · ' + DIAS_NOMBRE[hc.dow];
+  } else {
+    const n = new Date();
+    h = n.getHours(); m = n.getMinutes(); s = n.getSeconds();
+    fecha = n.toLocaleDateString('es-AR', { weekday: 'long', day: 'numeric', month: 'long' });
+    fecha = fecha.charAt(0).toUpperCase() + fecha.slice(1);
+  }
+  $('relojHora').innerHTML = p2(h) + ':' + p2(m) + '<small>:' + p2(s) + '</small>';
+  $('relojFecha').textContent = fecha;
+  if (m !== ultimoMin) { ultimoMin = m; actualizarProxima(); }
+}
+
+/* ---------- Comida manual ---------- */
+function darComida(ms) {
+  if (!enviar(T.cComida, String(ms))) return;
+  pendienteComida = true; actualizarBotones();
+  toast('Orden enviada');
+  clearTimeout(pendTimer);
+  pendTimer = setTimeout(() => { pendienteComida = false; actualizarBotones(); }, 6000);
+}
+
+/* ---------- Agua ---------- */
+function cmdAgua(c) {
+  if (enviar(T.cAgua, c)) toast(c === 'iniciar' ? 'Orden enviada: activar agua' : 'Orden enviada: desactivar agua');
+}
+
+/* ---------- Estado recibido ---------- */
+function aplicarEstado(d) {
+  if (d.timeSynced && typeof d.currentTime === 'string') {
+    const hms = d.currentTime.split(':').map(Number);
+    casa = { base: hms[0] * 3600 + hms[1] * 60 + hms[2], dow: d.dow || 0, recibido: Date.now() };
+  } else { casa = null; }
+
+  $('contador').textContent = d.feedCount;
+  mostrar('avisoVacio', d.depositoVacio);
+  feeding = !!d.feeding;
+  if (feeding) pendienteComida = false;
+  actualizarBotones();
+
+  const prog = $('prog'), barra = $('barra');
+  if (d.feeding) {
+    prog.classList.add('on');
+    const total = d.feedTotalMs || 1, rest = d.feedRestanteMs;
+    barra.style.transition = 'none';
+    barra.style.width = (Math.max(0, Math.min(1, (total - rest) / total)) * 100) + '%';
+    void barra.offsetWidth;
+    barra.style.transition = 'width ' + rest + 'ms linear';
+    barra.style.width = '100%';
+    $('estadoComida').textContent = 'Dispensando comida…';
+  } else {
+    if (estabaDispensando) {
+      toast('Comida dispensada ✔');
+      barra.style.transition = 'none'; barra.style.width = '100%';
+      setTimeout(() => { prog.classList.remove('on'); barra.style.width = '0'; }, 900);
+    }
+    $('estadoComida').textContent = d.depositoVacio ? 'Depósito vacío: hay que recargarlo' : 'Listo para dispensar';
+  }
+  estabaDispensando = !!d.feeding;
+
+  setPill('agua', d.aguaDeposito ? 'Con agua' : 'Sin agua', d.aguaDeposito ? 'ok' : 'mal');
+  setPill('tarrito', d.tarritoLleno ? 'Lleno' : 'Vacío', d.tarritoLleno ? 'ok' : 'med');
+  setPill('bomba', d.bombaOn ? 'Encendida' : 'Apagada', d.bombaOn ? 'ok' : '');
+  setPill('auto', d.aguaActivo ? 'Activado' : 'Desactivado', d.aguaActivo ? 'ok' : '');
+  mostrar('avisoAgua', !d.aguaDeposito);
+  mostrar('avisoFalla', d.aguaFalla);
+
+  $('wifiRed').textContent = d.wifiSsid || '—';
+  const r = d.rssi;
+  $('wifiSenal').textContent = (typeof r === 'number' && r < 0) ? (r > -60 ? 'Buena' : r > -75 ? 'Media' : 'Débil') + ' (' + r + ' dBm)' : '—';
+  tickReloj(); actualizarProxima();
+}
+
+/* ---------- Rutinas ---------- */
+function aplicarRutinas(d) {
+  rutMax = d.max;
+  const nuevas = d.items.map(x => ({ n: x.n, t: x.t, s: x.s, d: x.d, a: x.a }));
+  if (guardando) {
+    guardando = false; clearTimeout(confirmTimer);
+    verLocal = d.ver;
+    $('rutEstado').textContent = 'Guardado ✔';
+    if (!guardarTimer && JSON.stringify(nuevas) !== JSON.stringify(rutinas)) { rutinas = nuevas; render(); }
+    return;
+  }
+  if ((d.ver !== verLocal || verLocal === -1) && !guardarTimer) {
+    rutinas = nuevas; verLocal = d.ver; render();
+  }
+}
+
+function render() {
+  const cont = $('lista');
+  cont.textContent = '';
+  rutinas.forEach(r => cont.appendChild(filaRutina(r)));
+  $('vacio').style.display = rutinas.length ? 'none' : 'block';
+  $('btnAdd').disabled = rutinas.length >= rutMax;
+  $('cuentaRut').textContent = rutinas.length + '/' + rutMax;
+  actualizarProxima();
+}
+
+function filaRutina(r) {
+  const f = el('div', 'rutina' + (r.a ? '' : ' off'));
+
+  const sw = el('label', 'sw r-tog', { title: 'Activar o pausar esta rutina' });
+  const cb = el('input', null, { type: 'checkbox', 'aria-label': 'Rutina activa' });
+  cb.checked = !!r.a;
+  cb.onchange = () => { r.a = cb.checked ? 1 : 0; f.classList.toggle('off', !r.a); cambio(); };
+  sw.append(cb, el('span'));
+
+  const nom = el('input', 'in r-nom', { type: 'text', maxlength: 16, placeholder: 'Nombre (ej: Desayuno)', 'aria-label': 'Nombre de la rutina' });
+  nom.value = r.n;
+  nom.oninput = () => { r.n = nom.value; cambio(); };
+
+  const hora = el('input', 'in r-hora', { type: 'time', 'aria-label': 'Hora' });
+  hora.value = r.t;
+  hora.onchange = () => { if (!hora.value) { hora.value = r.t; return; } r.t = hora.value; cambio(); };
+
+  const por = el('select', 'in r-por', { 'aria-label': 'Porción' });
+  const opciones = PORCIONES.slice();
+  if (!opciones.some(o => o[0] === r.s)) opciones.push([r.s, (r.s / 10).toString().replace('.', ',') + ' s']);
+  opciones.forEach(o => { const op = el('option', null, { value: o[0] }); op.textContent = o[1]; por.appendChild(op); });
+  por.value = String(r.s);
+  por.onchange = () => { r.s = parseInt(por.value, 10); cambio(); };
+
+  const dias = el('div', 'dias r-dias', { role: 'group', 'aria-label': 'Días de la semana' });
+  DIAS_ORDEN.forEach(dw => {
+    const sel = (r.d >> dw) & 1;
+    const b = el('button', 'chip' + (sel ? ' sel' : ''), { type: 'button', title: DIAS_NOMBRE[dw], 'aria-pressed': sel ? 'true' : 'false' });
+    b.textContent = DIAS_LETRA[dw];
+    b.onclick = () => {
+      const nuevo = r.d ^ (1 << dw);
+      if ((nuevo & 127) === 0) { toast('Elegí al menos un día', true); return; }
+      r.d = nuevo;
+      const on = (r.d >> dw) & 1;
+      b.classList.toggle('sel', !!on);
+      b.setAttribute('aria-pressed', on ? 'true' : 'false');
+      cambio();
+    };
+    dias.appendChild(b);
+  });
+
+  const del = el('button', 'r-del', { type: 'button', title: 'Eliminar rutina', 'aria-label': 'Eliminar rutina' });
+  del.innerHTML = '<svg class="ic"><use href="#i-trash"/></svg>';
+  del.onclick = () => {
+    if (!confirm('¿Eliminar la rutina' + (r.n ? ' "' + r.n + '"' : '') + '?')) return;
+    rutinas.splice(rutinas.indexOf(r), 1);
+    render(); cambio(true);
+  };
+
+  f.append(sw, nom, hora, por, dias, del);
+  return f;
+}
+
+function agregarRutina() {
+  if (rutinas.length >= rutMax) return;
+  const hc = horaCasa();
+  const h = ((hc ? Math.floor(hc.s / 3600) : new Date().getHours()) + 1) % 24;
+  rutinas.push({ n: 'Rutina ' + (rutinas.length + 1), t: p2(h) + ':00', s: 25, d: 127, a: 1 });
+  render(); cambio(true);
+}
+
+function cambio(ya) {
+  actualizarProxima();
+  $('rutEstado').textContent = 'Guardando…';
+  clearTimeout(guardarTimer);
+  guardarTimer = setTimeout(guardar, ya ? 0 : 700);
+}
+
+function guardar() {
+  guardarTimer = null;
+  const lineas = rutinas.map(r =>
+    [r.t, r.s, r.d, r.a, String(r.n).replace(/[|\r\n]/g, ' ').trim()].join('|'));
+  const payload = rutinas.length + (lineas.length ? '\n' + lineas.join('\n') : '');
+  if (!enviar(T.cRutinas, payload)) { $('rutEstado').textContent = 'No se pudo guardar'; return; }
+  guardando = true;
+  clearTimeout(confirmTimer);
+  confirmTimer = setTimeout(() => {
+    if (!guardando) return;
+    guardando = false;
+    $('rutEstado').textContent = 'Sin confirmación del equipo';
+    toast('El equipo no confirmó el guardado', true);
+  }, 8000);
+}
+
+function actualizarProxima() {
+  const hc = horaCasa();
+  const n = new Date();
+  const ahora = hc ? Math.floor(hc.s / 60) : n.getHours() * 60 + n.getMinutes();
+  const hoy = hc ? hc.dow : n.getDay();
+  let mejor = null;
+  rutinas.forEach(r => {
+    if (!r.a) return;
+    const hm = r.t.split(':');
+    const min = parseInt(hm[0], 10) * 60 + parseInt(hm[1], 10);
+    for (let off = 0; off < 8; off++) {
+      const dw = (hoy + off) % 7;
+      if (!((r.d >> dw) & 1)) continue;
+      if (off === 0 && min <= ahora) continue;
+      const total = off * 1440 + min;
+      if (!mejor || total < mejor.total) mejor = { total: total, off: off, t: r.t, n: r.n, dw: dw };
+      break;
+    }
+  });
+  if (!mejor) { $('proxHora').textContent = '--:--'; $('proxTxt').textContent = 'Sin rutinas activas'; return; }
+  const dia = mejor.off === 0 ? 'Hoy' : (mejor.off === 1 ? 'Mañana' : DIAS_NOMBRE[mejor.dw]);
+  $('proxHora').textContent = mejor.t;
+  $('proxTxt').textContent = dia + (mejor.n ? ' · ' + mejor.n : '');
+}
+
+/* ---------- Inicio ---------- */
+render();
+tickReloj();
+setInterval(tickReloj, 1000);
+refrescarChip();
+(function () {
+  let c = null;
+  try { c = JSON.parse(leerLocal('petmatic.cred')); } catch (e) {}
+  if (c && c.u && c.p) conectar(c.u, c.p); else $('login').classList.add('on');
+})();
+</script>
+</body>
+</html>
