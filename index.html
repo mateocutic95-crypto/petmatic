@@ -295,8 +295,7 @@ footer{text-align:center;font-size:.78rem;color:var(--cafe);opacity:.7;margin-to
 <script src="https://cdn.jsdelivr.net/npm/mqtt@5.10.1/dist/mqtt.min.js"></script>
 <script>
 /* ============ CONFIGURACIÓN (editá solo esta línea) ============ */
-const BROKER_HOST = 'c21b1192.ala.us-east-1.emqxsl.com
-';   // el "Connection Address" de tu broker (sin https://)
+const BROKER_HOST = 'c21b1192.ala.us-east-1.emqxsl.com';   // el "Connection Address" de tu broker (sin https://)
 const BROKER_WSS_PORT = 8084;                // puerto "WebSocket over TLS" (verificalo en tu panel de EMQX)
 /* ================================================================= */
 const BROKER_URL = 'wss://' + BROKER_HOST + ':' + BROKER_WSS_PORT + '/mqtt';
